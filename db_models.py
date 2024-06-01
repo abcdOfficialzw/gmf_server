@@ -9,13 +9,14 @@ class Monuments(SQLModel, table=True):
     monument_name: str
     topo: str
     condition: str
-    monument_image : str
+    monument_image: str
     gauss_id: int = Field(foreign_key="gausspoints.id")
     wgs84_id: int = Field(foreign_key="wgs84points.id")
     utm_id: int = Field(foreign_key="utmpoints.id")
     delta_id: int = Field(foreign_key="deltapoints.id")
 
     # Relationships
+    reports: List["Reports"] = Relationship(back_populates="monument")
     gausspoints: Optional["GaussPoints"] = Relationship(back_populates="monuments")
     wgs84points: Optional["WGS84Points"] = Relationship(back_populates="monuments")
     utmpoints: Optional["UTMPoints"] = Relationship(back_populates="monuments")
@@ -24,6 +25,20 @@ class Monuments(SQLModel, table=True):
     @classmethod
     def from_json(cls, json_str):
         json_dict = json.loads(json_str)
+
+        # Handling nested JSON objects for related points
+        if 'gausspoints' in json_dict and json_dict['gausspoints'] is not None:
+            json_dict['gausspoints'] = GaussPoints.from_json(json.dumps(json_dict['gausspoints']))
+
+        if 'wgs84points' in json_dict and json_dict['wgs84points'] is not None:
+            json_dict['wgs84points'] = WGS84Points.from_json(json.dumps(json_dict['wgs84points']))
+
+        if 'utmpoints' in json_dict and json_dict['utmpoints'] is not None:
+            json_dict['utmpoints'] = UTMPoints.from_json(json.dumps(json_dict['utmpoints']))
+
+        if 'deltapoints' in json_dict and json_dict['deltapoints'] is not None:
+            json_dict['deltapoints'] = DeltaPoints.from_json(json.dumps(json_dict['deltapoints']))
+
         return cls(**json_dict)
 
     def to_json(self):
@@ -32,7 +47,7 @@ class Monuments(SQLModel, table=True):
             "monument_name": self.monument_name,
             "topo": self.topo,
             "condition": self.condition,
-            "monument_image" : self.monument_image,
+            "monument_image": self.monument_image,
             "gauss_id": self.gauss_id,
             "wgs84_id": self.wgs84_id,
             "utm_id": self.utm_id,
@@ -47,6 +62,24 @@ class Monuments(SQLModel, table=True):
         }
 
 
+class Reports(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    monument_id: int = Field(foreign_key="monuments.id")
+    condition: str
+    is_resolved: bool = Field(default=False)
+
+    # Relationships
+    monument: Optional["Monuments"] = Relationship(back_populates="reports")
+
+
+    def to_json(self):
+        return {
+            "id": self.id,
+            "monument_id": self.monument_id,
+            "condition": self.condition,
+            "is_resolved" : self.is_resolved,
+            "monument": self.monument.to_json()
+        }
 
 class GaussPoints(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

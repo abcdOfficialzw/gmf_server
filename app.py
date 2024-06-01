@@ -7,14 +7,23 @@ import db_models
 from db import engine
 
 from geodetic_monument_finder import create_app
+from geodetic_monument_finder.monuments import monuments
+
 
 from geodetic_monument_finder.models.network_response import NetworkResponse, NetworkingStatus, HttpStatusCode
+from geodetic_monument_finder.reports import reports
 from raw_database import DATABASE
 
 app = create_app()
 
 # Create Database Tables
 SQLModel.metadata.create_all(engine)
+
+app.register_blueprint(monuments.bp)
+print('Looading Reports')
+app.register_blueprint(reports.bp)
+print('Looaded Reports')
+
 
 
 # Populate Database Tables
@@ -116,18 +125,6 @@ def populate():
     return "Populating Database"
 
 
-@app.route("/monuments", methods=["GET"])
-def get_monuments():
-    with Session(engine) as session:
-        statement = select(db_models.Monuments)
-        result = session.exec(statement).all()
-        return NetworkResponse(
-            status=NetworkingStatus.SUCCESS.value,
-            message="Monuments Retrieved!",
-            data=[monument.to_json() for monument in result],
-            is_exception=False,
-            error_message=None
-        ).to_json(), HttpStatusCode.OK.value,
 
 @app.errorhandler(403)
 def forbidden(e):
