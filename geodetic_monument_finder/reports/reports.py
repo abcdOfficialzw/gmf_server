@@ -1,4 +1,4 @@
-from flask import Blueprint
+from flask import Blueprint, request
 from sqlmodel import Session, select
 
 import db_models
@@ -9,12 +9,14 @@ bp = Blueprint('reports', __name__, url_prefix='/reports')
 
 
 @bp.route('/', methods=["GET"])
-
-
 def get_reports():
     try:
+
+        page = request.args.get('page', default=0, type=int)
+        per_page = request.args.get('per_page', default=10, type=int)
+
         with Session(engine) as session:
-            statement = select(db_models.Reports)
+            statement = select(db_models.Reports).limit(per_page).offset(page * per_page)
             reports = session.exec(statement).all()
 
             return NetworkResponse(

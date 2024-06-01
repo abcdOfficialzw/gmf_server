@@ -13,8 +13,11 @@ bp = Blueprint('monuments', __name__, url_prefix='/monuments')
 @bp.route('/', methods=['GET'])
 def get_monuments():
     try:
+        page = request.args.get('page', default=0, type=int)
+        per_page = request.args.get('per_page', default=10, type=int)
+
         with Session(engine) as session:
-            statement = select(db_models.Monuments)
+            statement = select(db_models.Monuments).limit(per_page).offset(page * per_page)
             result = session.exec(statement).all()
             return NetworkResponse(
                 status=NetworkingStatus.SUCCESS.value,
