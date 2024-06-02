@@ -44,7 +44,7 @@ def get_reports():
         ).to_json(), HttpStatusCode.EXCEPTION.value,
 
 
-@bp.route('/search', methods=["GET"])
+@bp.route('/search', methods=["GET", "POST"])
 def get_report_by_monument_name():
     try:
         page = request.args.get('page', default=0, type=int)

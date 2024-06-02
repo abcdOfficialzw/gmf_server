@@ -75,7 +75,7 @@ def update_monument_condition(monument_id):
         ).to_json(), HttpStatusCode.EXCEPTION.value,
 
 
-@bp.route("/search", methods=['GET'])
+@bp.route("/search", methods=['GET', 'POST'])
 def get_monument_by_name():
     try:
         data = request.get_json()
