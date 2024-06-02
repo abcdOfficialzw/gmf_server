@@ -125,3 +125,50 @@ def resolve_report():
             is_exception=True,
             error_message=str(e)
         ).to_json(), HttpStatusCode.EXCEPTION.value,
+
+
+@bp.route('', methods=["POST"])
+def create_report():
+    try:
+        data = request.get_json()
+        monument_id = data["monument_id"]
+        condition = data["condition"]
+
+        with Session(engine) as session:
+            statement = select(db_models.Reports).where(db_models.Reports.monument_id == monument_id).where(
+                db_models.Reports.condition == condition)
+            result = session.exec(statement).all()
+
+            if len(result)> 0:
+                return NetworkResponse(
+                    status=NetworkingStatus.FAILED.value,
+                    message=f"This monument has already been reported as {condition}, contact the Administrator to confirm it's status",
+                    data=None,
+                    is_exception=False,
+                    error_message=None
+                ).to_json(), HttpStatusCode.OK.value,
+            else:
+                new_report = db_models.Reports(
+                    monument_id=monument_id,
+                    condition=condition
+                )
+                session.add(new_report)
+                session.commit()
+                session.refresh(new_report)
+
+            return NetworkResponse(
+                status=NetworkingStatus.SUCCESS.value,
+                message=f"Monument Reported as {condition}",
+                data=new_report.to_json(),
+                is_exception=False,
+                error_message=None
+            ).to_json(), HttpStatusCode.OK.value,
+
+    except Exception as e:
+        return NetworkResponse(
+            status=NetworkingStatus.FAILED.value,
+            message="Failed to create report",
+            data=None,
+            is_exception=True,
+            error_message=str(e)
+        ).to_json(), HttpStatusCode.EXCEPTION.value,
