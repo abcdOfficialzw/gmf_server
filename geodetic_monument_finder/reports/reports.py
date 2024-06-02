@@ -1,5 +1,5 @@
 from flask import Blueprint, request
-from sqlmodel import Session, select
+from sqlmodel import Session, select, col
 
 import db_models
 from db import engine
@@ -16,13 +16,20 @@ def get_reports():
         per_page = request.args.get('per_page', default=10, type=int)
 
         with Session(engine) as session:
-            statement = select(db_models.Reports).limit(per_page).offset(page * per_page)
+            statement = select(db_models.Reports).limit(per_page).offset(page * per_page).order_by(
+                db_models.Reports.is_resolved.asc())
             reports = session.exec(statement).all()
 
             return NetworkResponse(
                 status=NetworkingStatus.SUCCESS.value,
                 message="Successfully fetched Reports",
-                data=[report.to_json() for report in reports],
+                data={
+                    "reports": [report.to_json() for report in reports],
+                    "total": len(reports),
+                    "is_empty": len(reports) == 0,
+                    "page": page,
+                    "per_page": per_page
+                },
                 is_exception=False,
                 error_message=None
             ).to_json(), HttpStatusCode.OK.value,
@@ -31,6 +38,89 @@ def get_reports():
         return NetworkResponse(
             status=NetworkingStatus.FAILED.value,
             message="Failed to update monument",
+            data=None,
+            is_exception=True,
+            error_message=str(e)
+        ).to_json(), HttpStatusCode.EXCEPTION.value,
+
+
+@bp.route('/search', methods=["GET"])
+def get_report_by_monument_name():
+    try:
+        page = request.args.get('page', default=0, type=int)
+        per_page = request.args.get('per_page', default=10, type=int)
+
+        data = request.get_json()
+        monument_name = data['monument_name']
+
+        with Session(engine) as session:
+            statement = select(db_models.Reports).join(db_models.Monuments).where(
+                col(db_models.Monuments.monument_name).contains(monument_name))
+
+            reports = session.exec(statement).all()
+
+            return NetworkResponse(
+                status=NetworkingStatus.SUCCESS.value,
+                message="Successfully fetched Reports",
+                data={
+                    "reports": [report.to_json() for report in reports],
+                    "total": len(reports),
+                    "is_empty": len(reports) == 0,
+                    "page": page,
+                    "per_page": per_page
+                },
+                is_exception=False,
+                error_message=None
+            ).to_json(), HttpStatusCode.OK.value,
+
+
+    except Exception as e:
+        return NetworkResponse(
+            status=NetworkingStatus.FAILED.value,
+            message="Failed to update monument",
+            data=None,
+            is_exception=True,
+            error_message=str(e)
+        ).to_json(), HttpStatusCode.EXCEPTION.value,
+
+
+@bp.route('/resolve', methods=["PUT"])
+def resolve_report():
+    try:
+        data = request.get_json()
+        condition = data["condition"]
+        monument_id = data["monument_id"]
+
+        with Session(engine) as session:
+            statement = select(db_models.Monuments).where(db_models.Monuments.id == monument_id)
+            monument = session.exec(statement).one()
+
+            monument.condition = condition
+            session.add(monument)
+            session.commit()
+            session.refresh(monument)
+
+            statement = select(db_models.Reports).join(db_models.Monuments).where(
+                db_models.Reports.monument_id == monument_id)
+            reports = session.exec(statement).all()
+            for report in reports:
+                report.is_resolved = True
+                session.add(report)
+                session.commit()
+                session.refresh(report)
+
+            return NetworkResponse(
+                status=NetworkingStatus.SUCCESS.value,
+                message=f"Resolved {len(reports)} reports for monument {monument_id}",
+                data={},
+                is_exception=False,
+                error_message=None
+            ).to_json(), HttpStatusCode.OK.value,
+
+    except Exception as e:
+        return NetworkResponse(
+            status=NetworkingStatus.FAILED.value,
+            message="Failed to resolve report",
             data=None,
             is_exception=True,
             error_message=str(e)

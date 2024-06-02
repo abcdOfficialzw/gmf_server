@@ -1,5 +1,7 @@
 import os
 from random import randint
+from flask_cors import CORS,cross_origin
+
 
 from sqlmodel import SQLModel, Session, select
 
@@ -15,20 +17,22 @@ from geodetic_monument_finder.reports import reports
 from raw_database import DATABASE
 
 app = create_app()
+CORS(app)
 
 # Create Database Tables
 SQLModel.metadata.create_all(engine)
 
-app.register_blueprint(monuments.bp)
-print('Looading Reports')
+
 app.register_blueprint(reports.bp)
-print('Looaded Reports')
+app.register_blueprint(monuments.bp)
+
 
 
 
 # Populate Database Tables
 
 @app.route("/", methods=["GET"])
+@cross_origin(supports_credentials=True)
 def hello():
     with Session(engine) as session:
         statement = select(db_models.Test2)
